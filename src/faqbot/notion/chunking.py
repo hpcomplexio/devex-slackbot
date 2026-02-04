@@ -1,30 +1,13 @@
 """Heading-based chunking of Notion pages."""
 
 from typing import Dict, Any, List
-from dataclasses import dataclass
 
+from ..types import FAQChunk
 from .parser import (
     extract_text_from_block,
     is_heading,
     get_page_title,
 )
-
-
-@dataclass
-class FAQChunk:
-    """A chunk of FAQ content."""
-
-    heading: str
-    content: str
-    block_id: str
-    notion_url: str
-
-    def __str__(self) -> str:
-        """String representation for debugging."""
-        content_preview = (
-            self.content[:100] + "..." if len(self.content) > 100 else self.content
-        )
-        return f"FAQChunk(heading='{self.heading}', content='{content_preview}')"
 
 
 def build_notion_url(page_id: str, block_id: str) -> str:

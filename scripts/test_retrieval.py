@@ -7,8 +7,6 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from faqbot.config import Config
-from faqbot.notion.client import NotionClient
-from faqbot.notion.chunking import chunk_by_headings
 from faqbot.retrieval.embeddings import EmbeddingModel
 from faqbot.retrieval.store import VectorStore
 from faqbot.retrieval.ranker import check_confidence
@@ -22,11 +20,24 @@ def main():
         config = Config.from_env()
         config.validate()
 
-        # Fetch FAQ content
-        print("Fetching FAQ content from Notion...")
-        client = NotionClient(config.notion_api_key)
-        page, blocks = client.get_page_content(config.notion_faq_page_id)
-        chunks = chunk_by_headings(page, blocks, config.notion_faq_page_id)
+        # Fetch FAQ content based on source
+        print(f"Fetching FAQ content from {config.faq_source}...")
+
+        if config.faq_source == "notion":
+            from faqbot.notion.client import NotionClient
+            from faqbot.notion.chunking import chunk_by_headings
+
+            client = NotionClient(config.notion_api_key)
+            page, blocks = client.get_page_content(config.notion_faq_page_id)
+            chunks = chunk_by_headings(page, blocks, config.notion_faq_page_id)
+        else:  # markdown
+            from faqbot.markdown.reader import read_markdown_file, parse_markdown_blocks
+            from faqbot.markdown.chunking import chunk_markdown
+
+            content = read_markdown_file(config.faq_file_path)
+            blocks = parse_markdown_blocks(content)
+            chunks = chunk_markdown(blocks, config.faq_file_path)
+
         print(f"✓ Loaded {len(chunks)} chunks")
 
         # Initialize embedding model

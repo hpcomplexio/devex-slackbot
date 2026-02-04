@@ -46,3 +46,6 @@ models/
 
 # Logs
 *.log
+
+# Private FAQ files (keep your actual FAQs local)
+devex_faqs.md

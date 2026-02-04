@@ -1,0 +1,1 @@
+"""Markdown FAQ source adapter."""

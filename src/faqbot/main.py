@@ -8,8 +8,6 @@ from threading import Thread
 
 from .config import Config
 from .logging import setup_logging, log_event, log_error
-from .notion.client import NotionClient
-from .notion.chunking import chunk_by_headings
 from .retrieval.embeddings import EmbeddingModel
 from .retrieval.store import VectorStore
 from .llm.claude import ClaudeClient
@@ -30,8 +28,15 @@ class FAQBot:
 
         # Initialize components
         self.logger.info("Initializing components...")
+        self.logger.info(f"FAQ source: {config.faq_source}")
 
-        self.notion_client = NotionClient(config.notion_api_key)
+        # Initialize FAQ source-specific client
+        if config.faq_source == "notion":
+            from .notion.client import NotionClient
+            self.content_source = NotionClient(config.notion_api_key)
+        else:  # markdown
+            self.content_source = None  # No API client needed for markdown
+
         self.embedding_model = EmbeddingModel()
         self.vector_store = VectorStore(dimension=self.embedding_model.dimension)
         self.claude_client = ClaudeClient(config.anthropic_api_key)
@@ -66,18 +71,29 @@ class FAQBot:
         self.logger.info("✓ Bot initialized successfully")
 
     def sync_faq(self) -> None:
-        """Sync FAQ content from Notion and update vector store."""
+        """Sync FAQ content from source and update vector store."""
         try:
             start_time = time.time()
             log_event(self.logger, "FAQ sync started")
 
-            # Fetch content
-            page, blocks = self.notion_client.get_page_content(
-                self.config.notion_faq_page_id
-            )
+            # Fetch and chunk content based on source
+            if self.config.faq_source == "notion":
+                from .notion.chunking import chunk_by_headings
 
-            # Chunk content
-            chunks = chunk_by_headings(page, blocks, self.config.notion_faq_page_id)
+                # Fetch from Notion
+                page, blocks = self.content_source.get_page_content(
+                    self.config.notion_faq_page_id
+                )
+                chunks = chunk_by_headings(page, blocks, self.config.notion_faq_page_id)
+
+            else:  # markdown
+                from .markdown.reader import read_markdown_file, parse_markdown_blocks
+                from .markdown.chunking import chunk_markdown
+
+                # Read and parse markdown file
+                content = read_markdown_file(self.config.faq_file_path)
+                blocks = parse_markdown_blocks(content)
+                chunks = chunk_markdown(blocks, self.config.faq_file_path)
 
             # Generate embeddings
             chunk_texts = [f"{chunk.heading}\n{chunk.content}" for chunk in chunks]
@@ -90,6 +106,7 @@ class FAQBot:
             log_event(
                 self.logger,
                 "FAQ sync completed",
+                source=self.config.faq_source,
                 chunks=len(chunks),
                 elapsed_seconds=f"{elapsed:.2f}",
             )

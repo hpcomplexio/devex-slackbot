@@ -2,7 +2,7 @@
 
 import os
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 
 
@@ -10,19 +10,21 @@ from dotenv import load_dotenv
 class Config:
     """Application configuration."""
 
-    # Slack
+    # Required fields (no defaults)
     slack_bot_token: str
     slack_app_token: str
     slack_allowed_channels: List[str]
-
-    # Notion
-    notion_api_key: str
-    notion_faq_page_id: str
-
-    # Claude
     anthropic_api_key: str
 
-    # Retrieval
+    # FAQ Source (with defaults)
+    faq_source: str = "markdown"  # Options: "markdown" or "notion"
+    faq_file_path: Optional[str] = None  # For markdown source
+
+    # Notion (only required if faq_source == "notion")
+    notion_api_key: Optional[str] = None
+    notion_faq_page_id: Optional[str] = None
+
+    # Retrieval (with defaults)
     top_k: int = 5
     min_similarity: float = 0.70
     min_gap: float = 0.15
@@ -37,9 +39,13 @@ class Config:
         slack_bot_token = os.getenv("SLACK_BOT_TOKEN")
         slack_app_token = os.getenv("SLACK_APP_TOKEN")
         slack_allowed_channels = os.getenv("SLACK_ALLOWED_CHANNELS")
+        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+
+        # FAQ source configuration
+        faq_source = os.getenv("FAQ_SOURCE", "markdown").lower()
+        faq_file_path = os.getenv("FAQ_FILE_PATH")
         notion_api_key = os.getenv("NOTION_API_KEY")
         notion_faq_page_id = os.getenv("NOTION_FAQ_PAGE_ID")
-        anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
 
         # Validate required
         missing = []
@@ -49,12 +55,23 @@ class Config:
             missing.append("SLACK_APP_TOKEN")
         if not slack_allowed_channels:
             missing.append("SLACK_ALLOWED_CHANNELS")
-        if not notion_api_key:
-            missing.append("NOTION_API_KEY")
-        if not notion_faq_page_id:
-            missing.append("NOTION_FAQ_PAGE_ID")
         if not anthropic_api_key:
             missing.append("ANTHROPIC_API_KEY")
+
+        # Validate FAQ source-specific requirements
+        if faq_source not in ["markdown", "notion"]:
+            raise ValueError(
+                f"Invalid FAQ_SOURCE: {faq_source}. Must be 'markdown' or 'notion'"
+            )
+
+        if faq_source == "markdown":
+            if not faq_file_path:
+                missing.append("FAQ_FILE_PATH (required when FAQ_SOURCE=markdown)")
+        elif faq_source == "notion":
+            if not notion_api_key:
+                missing.append("NOTION_API_KEY (required when FAQ_SOURCE=notion)")
+            if not notion_faq_page_id:
+                missing.append("NOTION_FAQ_PAGE_ID (required when FAQ_SOURCE=notion)")
 
         if missing:
             raise ValueError(
@@ -74,6 +91,8 @@ class Config:
             slack_bot_token=slack_bot_token,
             slack_app_token=slack_app_token,
             slack_allowed_channels=channels,
+            faq_source=faq_source,
+            faq_file_path=faq_file_path,
             notion_api_key=notion_api_key,
             notion_faq_page_id=notion_faq_page_id,
             anthropic_api_key=anthropic_api_key,

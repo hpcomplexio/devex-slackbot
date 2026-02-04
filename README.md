@@ -1,23 +1,23 @@
 # Slack FAQ Bot
 
-A Python Slack bot that automatically answers questions in threads using a Notion FAQ page as the single source of truth, powered by Claude for answer generation.
+A Python Slack bot that automatically answers questions in threads using an FAQ source as the single source of truth, powered by Claude for answer generation.
 
 ## Features
 
 - **Automatic Question Detection**: Detects questions in Slack channels and responds in threads
-- **Notion Integration**: Uses a Notion FAQ page as the knowledge base
+- **Flexible FAQ Sources**: Supports both Notion and Markdown files as knowledge bases
 - **Semantic Search**: Uses Sentence Transformers embeddings and FAISS for retrieval
 - **Confidence Gating**: Only answers when confident to prevent hallucinations
 - **Claude-Powered**: Generates grounded answers with source citations
 - **Thread Deduplication**: Prevents multiple responses in the same thread
-- **Automatic FAQ Sync**: Periodically refreshes content from Notion
+- **Automatic FAQ Sync**: Periodically refreshes content from source
 
 ## Architecture
 
 ```
 Slack Message → Filters → Question Detection → Thread Dedup Check
     ↓
-Notion FAQ → Chunks (heading-based) → Embeddings (Sentence Transformers)
+FAQ Source (Notion/Markdown) → Chunks (heading-based) → Embeddings (Sentence Transformers)
     ↓
 Semantic Search → Confidence Gating → Claude Answer → Slack Thread Reply
 ```
@@ -27,9 +27,39 @@ Semantic Search → Confidence Gating → Claude Answer → Slack Thread Reply
 ### Prerequisites
 
 - Python 3.10+
-- A Notion account with an FAQ page
 - A Slack workspace with admin access
 - An Anthropic API key
+- **Either**: A Notion account with an FAQ page **OR** a local Markdown file
+
+### FAQ Source Setup
+
+Choose one of the following FAQ sources:
+
+#### Option 1: Markdown File (Recommended for Testing)
+
+The easiest way to get started. Create a `faq.md` file in the project root with your FAQ content. A sample file is included.
+
+Markdown format:
+```markdown
+# Question or Topic
+
+Answer content here.
+
+## Another Question
+
+More answer content.
+```
+
+In your `.env` file:
+```bash
+FAQ_SOURCE=markdown
+FAQ_FILE_PATH=./faq.md
+```
+
+**Pros**: No API keys needed, instant testing, version control friendly
+**Cons**: Manual updates (restart bot to reload), no collaborative editing
+
+#### Option 2: Notion (For Production)
 
 ### 1. Notion Setup
 
@@ -45,6 +75,16 @@ Semantic Search → Confidence Gating → Claude Answer → Slack Thread Reply
 3. Get the page ID from the URL:
    - URL: `https://www.notion.so/My-FAQ-abc123def456`
    - Page ID: `abc123def456`
+
+In your `.env` file:
+```bash
+FAQ_SOURCE=notion
+NOTION_API_KEY=secret_your-key
+NOTION_FAQ_PAGE_ID=your-page-id
+```
+
+**Pros**: Real-time collaboration, automatic sync, no bot restart needed
+**Cons**: Requires API setup and permissions
 
 ### 2. Slack Setup
 
@@ -95,7 +135,11 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -e .
 
-# Test Notion connection
+# Test FAQ source
+# For Markdown:
+python scripts/test_markdown_source.py
+
+# For Notion:
 python scripts/sync_faq_once.py
 
 # Get Slack channel IDs
@@ -117,7 +161,13 @@ SLACK_BOT_TOKEN=xoxb-your-bot-token
 SLACK_APP_TOKEN=xapp-your-app-token
 SLACK_ALLOWED_CHANNELS=C123456789,C987654321  # Comma-separated channel IDs
 
-# Notion
+# FAQ Source (choose one: "markdown" or "notion")
+FAQ_SOURCE=markdown
+
+# Markdown FAQ (only needed if FAQ_SOURCE=markdown)
+FAQ_FILE_PATH=./faq.md
+
+# Notion FAQ (only needed if FAQ_SOURCE=notion)
 NOTION_API_KEY=secret_your-notion-key
 NOTION_FAQ_PAGE_ID=your-page-id
 
@@ -136,10 +186,13 @@ FAQ_SYNC_INTERVAL=30  # Minutes between FAQ refreshes
 Test individual components:
 
 ```bash
-# Test Notion integration and chunking
+# Test markdown source (if using markdown)
+python scripts/test_markdown_source.py
+
+# Test Notion integration (if using Notion)
 python scripts/sync_faq_once.py
 
-# Test retrieval system
+# Test retrieval system (works with both sources)
 python scripts/test_retrieval.py
 
 # Test answer generation
@@ -159,14 +212,14 @@ python scripts/print_channel_id.py
 
 ### Answer Generation
 
-1. **Chunking**: Splits Notion FAQ by headings (H1, H2, H3)
+1. **Chunking**: Splits FAQ content by headings (H1, H2, H3)
 2. **Embedding**: Generates semantic embeddings using Sentence Transformers
 3. **Search**: Finds top-k most relevant chunks using FAISS
 4. **Confidence Gating**: Only answers if:
    - Top similarity >= 0.70 (absolute threshold)
    - Gap between top and second >= 0.15 (uncertainty check)
 5. **Generation**: Claude generates answer using retrieved context
-6. **Response**: Posts answer in thread with Notion source links
+6. **Response**: Posts answer in thread with source links
 
 ### Confidence Gating
 
@@ -185,7 +238,9 @@ devex-slackbot/
 │   ├── config.py        # Configuration loader
 │   ├── logging.py       # Structured logging
 │   ├── main.py          # Entry point
+│   ├── types.py         # Shared data types
 │   ├── notion/          # Notion integration
+│   ├── markdown/        # Markdown file integration
 │   ├── retrieval/       # Embedding and search
 │   ├── llm/            # Claude integration
 │   ├── pipeline/       # Answer generation
@@ -193,6 +248,7 @@ devex-slackbot/
 │   └── state/          # State management
 ├── scripts/            # Utility scripts
 ├── tests/             # Unit tests
+├── faq.md             # Sample markdown FAQ
 └── pyproject.toml     # Dependencies
 ```
 
@@ -230,10 +286,17 @@ Metrics are periodically logged:
 
 ### FAQ not updating
 
+**For Notion:**
 1. Check `FAQ_SYNC_INTERVAL` in `.env`
 2. Verify Notion integration has access to the page
 3. Check logs for sync errors
 4. Manually trigger sync by restarting bot
+
+**For Markdown:**
+1. Restart the bot after editing the markdown file
+2. Verify the file path in `FAQ_FILE_PATH` is correct
+3. Check file permissions
+4. Consider switching to Notion for automatic sync
 
 ## License
 
