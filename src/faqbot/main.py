@@ -15,6 +15,8 @@ from .pipeline.answer import AnswerPipeline
 from .slack.app import create_slack_app
 from .state.dedupe import ThreadTracker
 from .state.metrics import BotMetrics
+from .status.cache import StatusUpdateCache
+from .search.suggestions import FAQSuggestionService
 
 
 class FAQBot:
@@ -43,11 +45,21 @@ class FAQBot:
         self.thread_tracker = ThreadTracker()
         self.metrics = BotMetrics()
 
+        # Create status update cache (Phase 1)
+        self.status_cache = StatusUpdateCache(ttl_hours=config.status_cache_ttl_hours)
+
         # Initial FAQ sync
         self.logger.info("Performing initial FAQ sync...")
         self.sync_faq()
 
-        # Create pipeline
+        # Create FAQ suggestion service (Phase 2)
+        self.suggestion_service = FAQSuggestionService(
+            embedding_model=self.embedding_model,
+            vector_store=self.vector_store,
+            min_similarity=config.suggestion_min_similarity,
+        )
+
+        # Create pipeline with status cache (Phase 3)
         self.pipeline = AnswerPipeline(
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
@@ -55,16 +67,17 @@ class FAQBot:
             top_k=config.top_k,
             min_similarity=config.min_similarity,
             min_gap=config.min_gap,
+            status_cache=self.status_cache,
         )
 
-        # Create Slack app
+        # Create Slack app with all handlers (Phase 4-5)
         self.app, self.handler = create_slack_app(
-            bot_token=config.slack_bot_token,
-            app_token=config.slack_app_token,
+            config=config,
             pipeline=self.pipeline,
+            suggestion_service=self.suggestion_service,
+            status_cache=self.status_cache,
             thread_tracker=self.thread_tracker,
             metrics=self.metrics,
-            allowed_channels=config.slack_allowed_channels,
             logger=self.logger,
         )
 

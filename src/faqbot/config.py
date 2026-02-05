@@ -1,7 +1,7 @@
 """Configuration loader with validation."""
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 from dotenv import load_dotenv
 
@@ -29,6 +29,17 @@ class Config:
     min_similarity: float = 0.70
     min_gap: float = 0.15
     faq_sync_interval: int = 30  # minutes
+
+    # Suggestion features (new in Phase 4-5)
+    reaction_search_enabled: bool = True
+    slash_command_enabled: bool = True
+    suggestion_min_similarity: float = 0.50  # Lower than answer threshold
+    suggestion_top_k: int = 5
+
+    # Status monitoring (new in Phase 1)
+    status_monitoring_enabled: bool = True
+    slack_status_channels: List[str] = field(default_factory=list)  # Channels to monitor
+    status_cache_ttl_hours: int = 24  # How long to keep status updates
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -87,6 +98,22 @@ class Config:
         min_gap = float(os.getenv("MIN_GAP", "0.15"))
         faq_sync_interval = int(os.getenv("FAQ_SYNC_INTERVAL", "30"))
 
+        # Suggestion features (new)
+        reaction_search_enabled = os.getenv("REACTION_SEARCH_ENABLED", "true").lower() == "true"
+        slash_command_enabled = os.getenv("SLASH_COMMAND_ENABLED", "true").lower() == "true"
+        suggestion_min_similarity = float(os.getenv("SUGGESTION_MIN_SIMILARITY", "0.50"))
+        suggestion_top_k = int(os.getenv("SUGGESTION_TOP_K", "5"))
+
+        # Status monitoring (new)
+        status_monitoring_enabled = os.getenv("STATUS_MONITORING_ENABLED", "true").lower() == "true"
+        slack_status_channels_str = os.getenv("SLACK_STATUS_CHANNELS", "")
+        status_channels = (
+            [ch.strip() for ch in slack_status_channels_str.split(",") if ch.strip()]
+            if slack_status_channels_str
+            else []
+        )
+        status_cache_ttl_hours = int(os.getenv("STATUS_CACHE_TTL_HOURS", "24"))
+
         return cls(
             slack_bot_token=slack_bot_token,
             slack_app_token=slack_app_token,
@@ -100,6 +127,13 @@ class Config:
             min_similarity=min_similarity,
             min_gap=min_gap,
             faq_sync_interval=faq_sync_interval,
+            reaction_search_enabled=reaction_search_enabled,
+            slash_command_enabled=slash_command_enabled,
+            suggestion_min_similarity=suggestion_min_similarity,
+            suggestion_top_k=suggestion_top_k,
+            status_monitoring_enabled=status_monitoring_enabled,
+            slack_status_channels=status_channels,
+            status_cache_ttl_hours=status_cache_ttl_hours,
         )
 
     def validate(self) -> None:
@@ -112,3 +146,13 @@ class Config:
             raise ValueError("MIN_GAP must be between 0 and 1")
         if self.faq_sync_interval < 1:
             raise ValueError("FAQ_SYNC_INTERVAL must be >= 1")
+
+        # Validate suggestion features
+        if not 0 <= self.suggestion_min_similarity <= 1:
+            raise ValueError("SUGGESTION_MIN_SIMILARITY must be between 0 and 1")
+        if self.suggestion_top_k < 1:
+            raise ValueError("SUGGESTION_TOP_K must be >= 1")
+
+        # Validate status monitoring
+        if self.status_cache_ttl_hours < 1:
+            raise ValueError("STATUS_CACHE_TTL_HOURS must be >= 1")

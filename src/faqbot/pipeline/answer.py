@@ -1,6 +1,6 @@
 """Main pipeline for answering questions."""
 
-from typing import Optional, List
+from typing import Optional, List, Tuple
 from dataclasses import dataclass
 
 from ..retrieval.embeddings import EmbeddingModel
@@ -8,6 +8,7 @@ from ..retrieval.store import VectorStore, SearchResult
 from ..retrieval.ranker import check_confidence, ConfidenceCheck
 from ..llm.claude import ClaudeClient
 from ..llm.prompts import SYSTEM_PROMPT, build_user_prompt
+from ..status.cache import StatusUpdateCache, StatusUpdate, INCIDENT_KEYWORDS
 
 
 @dataclass
@@ -19,6 +20,7 @@ class AnswerResult:
     reason: Optional[str] = None
     results: Optional[List[SearchResult]] = None
     confidence: Optional[ConfidenceCheck] = None
+    status_updates: Optional[List[Tuple[StatusUpdate, float]]] = None  # NEW: Status correlations
 
 
 class AnswerPipeline:
@@ -32,6 +34,7 @@ class AnswerPipeline:
         top_k: int = 5,
         min_similarity: float = 0.70,
         min_gap: float = 0.15,
+        status_cache: Optional[StatusUpdateCache] = None,  # NEW
     ):
         """Initialize pipeline.
 
@@ -42,6 +45,7 @@ class AnswerPipeline:
             top_k: Number of chunks to retrieve
             min_similarity: Minimum similarity threshold
             min_gap: Minimum gap threshold
+            status_cache: Optional cache of status updates for incident correlation
         """
         self.embedding_model = embedding_model
         self.vector_store = vector_store
@@ -49,9 +53,10 @@ class AnswerPipeline:
         self.top_k = top_k
         self.min_similarity = min_similarity
         self.min_gap = min_gap
+        self.status_cache = status_cache  # NEW
 
     def answer_question(self, question: str) -> AnswerResult:
-        """Answer a question using the full pipeline.
+        """Answer a question using the full pipeline with status correlation.
 
         Args:
             question: User's question
@@ -62,13 +67,36 @@ class AnswerPipeline:
         # Step 1: Generate query embedding
         query_embedding = self.embedding_model.embed(question)
 
-        # Step 2: Retrieve relevant chunks
+        # Step 2: Retrieve relevant FAQ chunks
         results = self.vector_store.search(query_embedding, top_k=self.top_k)
 
         if not results:
             return AnswerResult(
                 answered=False, reason="No relevant FAQ content found", results=[]
             )
+
+        # Step 2.5: Search status updates (NEW)
+        status_results: List[Tuple[StatusUpdate, float]] = []
+        if self.status_cache:
+            try:
+                # Extract keywords from question
+                question_lower = question.lower()
+                question_keywords = [
+                    kw for kw in INCIDENT_KEYWORDS if kw in question_lower
+                ]
+
+                # Semantic search on status updates
+                if question_keywords or len(self.status_cache.updates) > 0:
+                    status_results = self.status_cache.search_semantic(
+                        query_embedding,
+                        self.embedding_model,
+                        top_k=3,
+                        min_similarity=0.50,  # Lower threshold for status
+                    )
+            except Exception as e:
+                # Log error but don't fail the entire pipeline
+                # Status correlation is supplementary, not critical
+                pass
 
         # Step 3: Check confidence
         confidence = check_confidence(
@@ -81,6 +109,7 @@ class AnswerPipeline:
                 reason=confidence.reason,
                 results=results,
                 confidence=confidence,
+                status_updates=status_results,  # Include status even for low confidence
             )
 
         # Step 4: Generate answer with Claude
@@ -94,13 +123,33 @@ class AnswerPipeline:
                     reason="Failed to generate answer",
                     results=results,
                     confidence=confidence,
+                    status_updates=status_results,
                 )
+
+            # Step 5: Append status updates to answer (NEW)
+            if status_results:
+                answer += "\n\n---\n**Related Status Updates:**\n"
+                for status, similarity in status_results[:2]:  # Show top 2
+                    # Format timestamp
+                    time_str = status.posted_at.strftime("%Y-%m-%d %H:%M")
+                    # Truncate message
+                    message_preview = (
+                        status.message_text[:200]
+                        if len(status.message_text) > 200
+                        else status.message_text
+                    )
+                    # Add to answer with link
+                    answer += f"\n• [{time_str}] {message_preview}"
+                    if len(status.message_text) > 200:
+                        answer += "..."
+                    answer += f" [View full message]({status.message_link})"
 
             return AnswerResult(
                 answered=True,
                 answer=answer,
                 results=results,
                 confidence=confidence,
+                status_updates=status_results,
             )
 
         except Exception as e:
@@ -109,4 +158,5 @@ class AnswerPipeline:
                 reason=f"Error generating answer: {e}",
                 results=results,
                 confidence=confidence,
+                status_updates=status_results,
             )

@@ -83,3 +83,19 @@ class VectorStore:
     def size(self) -> int:
         """Return number of chunks in the store."""
         return len(self.chunks)
+
+
+def get_chunk_by_id(vector_store: VectorStore, block_id: str) -> Optional[FAQChunk]:
+    """Find a chunk by its block ID.
+
+    Args:
+        vector_store: The vector store to search
+        block_id: The block ID to search for
+
+    Returns:
+        The matching FAQChunk or None if not found
+    """
+    for chunk in vector_store.chunks:
+        if chunk.block_id == block_id:
+            return chunk
+    return None
