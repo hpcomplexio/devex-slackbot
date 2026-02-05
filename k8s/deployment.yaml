@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: faq-bot
+  namespace: faq-bot
+spec:
+  replicas: 1  # Singleton for in-memory thread deduplication
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0  # Keep old pod running during updates
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: faq-bot
+  template:
+    metadata:
+      labels:
+        app: faq-bot
+    spec:
+      containers:
+      - name: faq-bot
+        image: <your-dockerhub-username>/faq-bot:v1.0.0  # UPDATE THIS
+        imagePullPolicy: Always
+
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+
+        env:
+        # Slack configuration
+        - name: SLACK_BOT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: faq-bot-secrets
+              key: slack-bot-token
+        - name: SLACK_APP_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: faq-bot-secrets
+              key: slack-app-token
+        - name: SLACK_ALLOWED_CHANNELS
+          value: "C123456789,C987654321"  # REPLACE WITH YOUR CHANNEL IDs
+
+        # Claude API
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: faq-bot-secrets
+              key: anthropic-api-key
+
+        # FAQ source configuration
+        - name: FAQ_SOURCE
+          value: "markdown"
+        - name: FAQ_FILE_PATH
+          value: "/etc/faq/faq.md"
+
+        # Retrieval settings (optional - these are defaults)
+        - name: TOP_K
+          value: "5"
+        - name: MIN_SIMILARITY
+          value: "0.70"
+        - name: MIN_GAP
+          value: "0.15"
+        - name: FAQ_SYNC_INTERVAL
+          value: "30"
+
+        # Mount FAQ content
+        volumeMounts:
+        - name: faq-content
+          mountPath: /etc/faq
+          readOnly: true
+
+        # Health probes
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 60  # Allow time for model download + init
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import sys; sys.exit(0)"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+      volumes:
+      - name: faq-content
+        configMap:
+          name: faq-bot-config
+
+      terminationGracePeriodSeconds: 30
