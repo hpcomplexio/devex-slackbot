@@ -298,6 +298,45 @@ Metrics are periodically logged:
 3. Check file permissions
 4. Consider switching to Notion for automatic sync
 
+## Kubernetes Deployment
+
+For production deployments, you can run this bot on Kubernetes for 24/7 operation.
+
+### Quick Start
+
+```bash
+# 1. Build and push Docker image
+docker build -t <your-dockerhub-username>/faq-bot:v1.0.0 .
+docker push <your-dockerhub-username>/faq-bot:v1.0.0
+
+# 2. Update k8s/deployment.yaml with your Docker Hub username and channel IDs
+
+# 3. Deploy to Kubernetes
+kubectl apply -f k8s/namespace.yaml
+kubectl create secret generic faq-bot-secrets \
+  --namespace=faq-bot \
+  --from-literal=slack-bot-token="$SLACK_BOT_TOKEN" \
+  --from-literal=slack-app-token="$SLACK_APP_TOKEN" \
+  --from-literal=anthropic-api-key="$ANTHROPIC_API_KEY"
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/deployment.yaml
+
+# 4. Verify
+kubectl logs -f deployment/faq-bot -n faq-bot
+```
+
+### Deployment Features
+
+- **Single replica**: Uses singleton pattern for in-memory thread deduplication
+- **Resource allocation**: 512Mi RAM / 0.25 CPU (suitable for 100+ questions/hour)
+- **Zero-downtime updates**: Rolling update strategy
+- **Auto-restart**: Kubernetes automatically restarts failed pods
+- **ConfigMap FAQ**: Markdown FAQ stored in ConfigMap for easy version control
+
+For detailed deployment instructions, troubleshooting, and maintenance, see [k8s/README.md](k8s/README.md).
+
+---
+
 ## License
 
 MIT
