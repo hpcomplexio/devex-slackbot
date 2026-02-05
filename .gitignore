@@ -50,5 +50,7 @@ models/
 # Private FAQ files (keep your actual FAQs local)
 devex_faqs.md
 
-# Kubernetes secrets (template only - never commit real secrets)
+# Kubernetes secrets (never commit real secrets)
 k8s/secret.yaml
+k8s/*secret*.yaml
+!k8s/secret.yaml.template
