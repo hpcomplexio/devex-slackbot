@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: faq-bot
-        image: <your-dockerhub-username>/faq-bot:v1.0.0  # UPDATE THIS
+        image: devexslackbotacr.azurecr.io/faq-bot:v1.0.0
         imagePullPolicy: Always
 
         resources:
@@ -58,6 +58,25 @@ spec:
           value: "markdown"
         - name: FAQ_FILE_PATH
           value: "/etc/faq/faq.md"
+
+        # Notion OAuth (uncomment if FAQ_SOURCE=notion)
+        # - name: NOTION_OAUTH_CLIENT_ID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: faq-bot-secrets
+        #       key: notion-oauth-client-id
+        # - name: NOTION_OAUTH_CLIENT_SECRET
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: faq-bot-secrets
+        #       key: notion-oauth-client-secret
+        # - name: NOTION_OAUTH_REFRESH_TOKEN
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: faq-bot-secrets
+        #       key: notion-oauth-refresh-token
+        # - name: NOTION_FAQ_PAGE_ID
+        #   value: "your-page-id-here"
 
         # Retrieval settings (optional - these are defaults)
         - name: TOP_K

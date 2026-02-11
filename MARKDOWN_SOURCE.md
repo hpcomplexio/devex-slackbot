@@ -59,16 +59,23 @@ The markdown adapter splits your FAQ file by headings (# ## ###), creating chunk
 
 ## Switching to Notion Later
 
-When your Notion integration is approved:
+When you're ready to use Notion:
 
-1. Update `.env`:
+1. Run OAuth setup (see README for detailed instructions):
+```bash
+python scripts/notion_oauth_setup.py
+```
+
+2. Update `.env`:
 ```bash
 FAQ_SOURCE=notion
-NOTION_API_KEY=secret_your-key
+NOTION_OAUTH_CLIENT_ID=your-client-id
+NOTION_OAUTH_CLIENT_SECRET=your-client-secret
+NOTION_OAUTH_REFRESH_TOKEN=your-refresh-token
 NOTION_FAQ_PAGE_ID=your-page-id
 ```
 
-2. Restart the bot
+3. Restart the bot
 
 That's it! The rest of the system (retrieval, embeddings, Claude) works the same regardless of source.
 

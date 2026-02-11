@@ -20,8 +20,10 @@ class Config:
     faq_source: str = "markdown"  # Options: "markdown" or "notion"
     faq_file_path: Optional[str] = None  # For markdown source
 
-    # Notion (only required if faq_source == "notion")
-    notion_api_key: Optional[str] = None
+    # Notion OAuth (only required if faq_source == "notion")
+    notion_oauth_client_id: Optional[str] = None
+    notion_oauth_client_secret: Optional[str] = None
+    notion_oauth_refresh_token: Optional[str] = None
     notion_faq_page_id: Optional[str] = None
 
     # Retrieval (with defaults)
@@ -55,7 +57,9 @@ class Config:
         # FAQ source configuration
         faq_source = os.getenv("FAQ_SOURCE", "markdown").lower()
         faq_file_path = os.getenv("FAQ_FILE_PATH")
-        notion_api_key = os.getenv("NOTION_API_KEY")
+        notion_oauth_client_id = os.getenv("NOTION_OAUTH_CLIENT_ID")
+        notion_oauth_client_secret = os.getenv("NOTION_OAUTH_CLIENT_SECRET")
+        notion_oauth_refresh_token = os.getenv("NOTION_OAUTH_REFRESH_TOKEN")
         notion_faq_page_id = os.getenv("NOTION_FAQ_PAGE_ID")
 
         # Validate required
@@ -79,8 +83,12 @@ class Config:
             if not faq_file_path:
                 missing.append("FAQ_FILE_PATH (required when FAQ_SOURCE=markdown)")
         elif faq_source == "notion":
-            if not notion_api_key:
-                missing.append("NOTION_API_KEY (required when FAQ_SOURCE=notion)")
+            if not notion_oauth_client_id:
+                missing.append("NOTION_OAUTH_CLIENT_ID (required when FAQ_SOURCE=notion)")
+            if not notion_oauth_client_secret:
+                missing.append("NOTION_OAUTH_CLIENT_SECRET (required when FAQ_SOURCE=notion)")
+            if not notion_oauth_refresh_token:
+                missing.append("NOTION_OAUTH_REFRESH_TOKEN (required when FAQ_SOURCE=notion)")
             if not notion_faq_page_id:
                 missing.append("NOTION_FAQ_PAGE_ID (required when FAQ_SOURCE=notion)")
 
@@ -120,7 +128,9 @@ class Config:
             slack_allowed_channels=channels,
             faq_source=faq_source,
             faq_file_path=faq_file_path,
-            notion_api_key=notion_api_key,
+            notion_oauth_client_id=notion_oauth_client_id,
+            notion_oauth_client_secret=notion_oauth_client_secret,
+            notion_oauth_refresh_token=notion_oauth_refresh_token,
             notion_faq_page_id=notion_faq_page_id,
             anthropic_api_key=anthropic_api_key,
             top_k=top_k,

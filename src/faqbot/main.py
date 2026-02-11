@@ -35,7 +35,15 @@ class FAQBot:
         # Initialize FAQ source-specific client
         if config.faq_source == "notion":
             from .notion.client import NotionClient
-            self.content_source = NotionClient(config.notion_api_key)
+            from .mcp.token_manager import NotionTokenManager
+
+            # Initialize OAuth token manager
+            token_manager = NotionTokenManager(
+                config.notion_oauth_client_id,
+                config.notion_oauth_client_secret,
+                config.notion_oauth_refresh_token
+            )
+            self.content_source = NotionClient(token_manager)
         else:  # markdown
             self.content_source = None  # No API client needed for markdown
 

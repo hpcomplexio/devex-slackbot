@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from faqbot.config import Config
 from faqbot.notion.client import NotionClient
 from faqbot.notion.chunking import chunk_by_headings
+from faqbot.mcp.token_manager import NotionTokenManager
 
 
 def main():
@@ -20,9 +21,18 @@ def main():
         config.validate()
         print(f"✓ Config loaded. FAQ Page ID: {config.notion_faq_page_id}")
 
+        # Initialize OAuth token manager
+        print("\nInitializing OAuth token manager...")
+        token_manager = NotionTokenManager(
+            config.notion_oauth_client_id,
+            config.notion_oauth_client_secret,
+            config.notion_oauth_refresh_token
+        )
+        print("✓ Token manager initialized")
+
         # Initialize Notion client
         print("\nInitializing Notion client...")
-        client = NotionClient(config.notion_api_key)
+        client = NotionClient(token_manager)
         print("✓ Client initialized")
 
         # Fetch page content

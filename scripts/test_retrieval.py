@@ -26,8 +26,14 @@ def main():
         if config.faq_source == "notion":
             from faqbot.notion.client import NotionClient
             from faqbot.notion.chunking import chunk_by_headings
+            from faqbot.mcp.token_manager import NotionTokenManager
 
-            client = NotionClient(config.notion_api_key)
+            token_manager = NotionTokenManager(
+                config.notion_oauth_client_id,
+                config.notion_oauth_client_secret,
+                config.notion_oauth_refresh_token
+            )
+            client = NotionClient(token_manager)
             page, blocks = client.get_page_content(config.notion_faq_page_id)
             chunks = chunk_by_headings(page, blocks, config.notion_faq_page_id)
         else:  # markdown

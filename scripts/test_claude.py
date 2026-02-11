@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from faqbot.config import Config
 from faqbot.notion.client import NotionClient
 from faqbot.notion.chunking import chunk_by_headings
+from faqbot.mcp.token_manager import NotionTokenManager
 from faqbot.retrieval.embeddings import EmbeddingModel
 from faqbot.retrieval.store import VectorStore
 from faqbot.llm.claude import ClaudeClient
@@ -23,9 +24,17 @@ def main():
         config = Config.from_env()
         config.validate()
 
+        # Initialize OAuth token manager
+        print("Initializing OAuth token manager...")
+        token_manager = NotionTokenManager(
+            config.notion_oauth_client_id,
+            config.notion_oauth_client_secret,
+            config.notion_oauth_refresh_token
+        )
+
         # Fetch FAQ content
         print("Fetching FAQ content from Notion...")
-        client = NotionClient(config.notion_api_key)
+        client = NotionClient(token_manager)
         page, blocks = client.get_page_content(config.notion_faq_page_id)
         chunks = chunk_by_headings(page, blocks, config.notion_faq_page_id)
         print(f"✓ Loaded {len(chunks)} chunks")
