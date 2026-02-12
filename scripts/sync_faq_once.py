@@ -21,18 +21,19 @@ def main():
         config.validate()
         print(f"✓ Config loaded. FAQ Page ID: {config.notion_faq_page_id}")
 
-        # Initialize OAuth token manager
-        print("\nInitializing OAuth token manager...")
-        token_manager = NotionTokenManager(
-            config.notion_oauth_client_id,
-            config.notion_oauth_client_secret,
-            config.notion_oauth_refresh_token
-        )
-        print("✓ Token manager initialized")
-
-        # Initialize Notion client
+        # Initialize Notion client with API key or OAuth
         print("\nInitializing Notion client...")
-        client = NotionClient(token_manager)
+        if config.notion_api_key:
+            print("Using Notion API key authentication")
+            client = NotionClient(config.notion_api_key)
+        else:
+            print("Using Notion OAuth authentication")
+            token_manager = NotionTokenManager(
+                config.notion_oauth_client_id,
+                config.notion_oauth_client_secret,
+                config.notion_oauth_refresh_token
+            )
+            client = NotionClient(token_manager)
         print("✓ Client initialized")
 
         # Fetch page content

@@ -20,11 +20,15 @@ class Config:
     faq_source: str = "markdown"  # Options: "markdown" or "notion"
     faq_file_path: Optional[str] = None  # For markdown source
 
-    # Notion OAuth (only required if faq_source == "notion")
+    # Notion (only required if faq_source == "notion")
+    # Option 1: Simple API key (recommended)
+    notion_api_key: Optional[str] = None
+    notion_faq_page_id: Optional[str] = None
+
+    # Option 2: OAuth (legacy)
     notion_oauth_client_id: Optional[str] = None
     notion_oauth_client_secret: Optional[str] = None
     notion_oauth_refresh_token: Optional[str] = None
-    notion_faq_page_id: Optional[str] = None
 
     # Retrieval (with defaults)
     top_k: int = 5
@@ -57,10 +61,11 @@ class Config:
         # FAQ source configuration
         faq_source = os.getenv("FAQ_SOURCE", "markdown").lower()
         faq_file_path = os.getenv("FAQ_FILE_PATH")
+        notion_api_key = os.getenv("NOTION_API_KEY")
+        notion_faq_page_id = os.getenv("NOTION_FAQ_PAGE_ID")
         notion_oauth_client_id = os.getenv("NOTION_OAUTH_CLIENT_ID")
         notion_oauth_client_secret = os.getenv("NOTION_OAUTH_CLIENT_SECRET")
         notion_oauth_refresh_token = os.getenv("NOTION_OAUTH_REFRESH_TOKEN")
-        notion_faq_page_id = os.getenv("NOTION_FAQ_PAGE_ID")
 
         # Validate required
         missing = []
@@ -83,14 +88,13 @@ class Config:
             if not faq_file_path:
                 missing.append("FAQ_FILE_PATH (required when FAQ_SOURCE=markdown)")
         elif faq_source == "notion":
-            if not notion_oauth_client_id:
-                missing.append("NOTION_OAUTH_CLIENT_ID (required when FAQ_SOURCE=notion)")
-            if not notion_oauth_client_secret:
-                missing.append("NOTION_OAUTH_CLIENT_SECRET (required when FAQ_SOURCE=notion)")
-            if not notion_oauth_refresh_token:
-                missing.append("NOTION_OAUTH_REFRESH_TOKEN (required when FAQ_SOURCE=notion)")
             if not notion_faq_page_id:
                 missing.append("NOTION_FAQ_PAGE_ID (required when FAQ_SOURCE=notion)")
+            # Support both API key and OAuth, but require at least one
+            has_api_key = bool(notion_api_key)
+            has_oauth = bool(notion_oauth_client_id and notion_oauth_client_secret and notion_oauth_refresh_token)
+            if not has_api_key and not has_oauth:
+                missing.append("NOTION_API_KEY or OAuth credentials (required when FAQ_SOURCE=notion)")
 
         if missing:
             raise ValueError(
@@ -128,10 +132,11 @@ class Config:
             slack_allowed_channels=channels,
             faq_source=faq_source,
             faq_file_path=faq_file_path,
+            notion_api_key=notion_api_key,
+            notion_faq_page_id=notion_faq_page_id,
             notion_oauth_client_id=notion_oauth_client_id,
             notion_oauth_client_secret=notion_oauth_client_secret,
             notion_oauth_refresh_token=notion_oauth_refresh_token,
-            notion_faq_page_id=notion_faq_page_id,
             anthropic_api_key=anthropic_api_key,
             top_k=top_k,
             min_similarity=min_similarity,

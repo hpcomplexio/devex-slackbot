@@ -1,33 +1,39 @@
-"""Notion API client with OAuth authentication."""
+"""Notion API client with API key or OAuth authentication."""
 
 import asyncio
 import time
 import json
 import urllib.request as req
 import urllib.error
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Union, Optional
 from ..mcp.token_manager import NotionTokenManager
 
 
 class NotionClient:
     """
-    Notion API client using OAuth authentication.
+    Notion API client supporting both API key and OAuth authentication.
 
-    This client uses OAuth tokens managed by NotionTokenManager instead of API keys,
-    aligning with the MCP-based authentication approach used in cpx-claude-agents.
+    Supports two authentication methods:
+    1. Simple API key (recommended)
+    2. OAuth with token manager (legacy)
     """
 
     NOTION_API_VERSION = "2022-06-28"
     BASE_URL = "https://api.notion.com/v1"
 
-    def __init__(self, token_manager: NotionTokenManager):
+    def __init__(self, auth: Union[str, NotionTokenManager]):
         """
-        Initialize Notion client with OAuth token manager.
+        Initialize Notion client with API key or OAuth token manager.
 
         Args:
-            token_manager: Token manager for OAuth authentication
+            auth: Either a Notion API key (string) or NotionTokenManager for OAuth
         """
-        self.token_manager = token_manager
+        if isinstance(auth, str):
+            self.api_key = auth
+            self.token_manager = None
+        else:
+            self.api_key = None
+            self.token_manager = auth
         self._last_request_time = 0
         self._min_interval = 1 / 3  # 3 requests per second
 
@@ -53,8 +59,11 @@ class NotionClient:
         Raises:
             RuntimeError: If request fails
         """
-        # Get fresh OAuth token
-        access_token = self.token_manager.get_access_token()
+        # Get authentication token (API key or OAuth)
+        if self.api_key:
+            access_token = self.api_key
+        else:
+            access_token = self.token_manager.get_access_token()
 
         # Build request
         url = f"{self.BASE_URL}{endpoint}"
