@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: faq-bot
-        image: devexslackbotacr.azurecr.io/faq-bot:v1.1.0
+        image: devexslackbotacr.azurecr.io/faq-bot:v1.1.1
         imagePullPolicy: Always
 
         resources:

@@ -19,13 +19,15 @@ def reciprocal_rank_fusion(
     RRF formula: score = sum(1 / (k + rank_i))
     where rank_i is the rank (0-indexed) in each result list
 
+    Scores are normalized to [0, 1] range to be comparable with cosine similarity.
+
     Args:
         semantic_results: Results from semantic search
         bm25_results: Results from BM25 search
         k: RRF constant (default 60, standard value from IR literature)
 
     Returns:
-        Merged and sorted SearchResults with RRF scores
+        Merged and sorted SearchResults with normalized RRF scores
     """
     # Build map: block_id -> RRF score
     rrf_scores: Dict[str, float] = defaultdict(float)
@@ -45,17 +47,22 @@ def reciprocal_rank_fusion(
     for result in semantic_results + bm25_results:
         chunk_map[result.chunk.block_id] = result.chunk
 
-    # Create merged results with RRF scores
+    # Normalize scores to [0, 1] range
+    # Maximum possible RRF score is when item ranks #1 in both lists: 2 * (1/k)
+    max_rrf_score = 2.0 / k
+
+    # Create merged results with normalized RRF scores
     merged_results = []
     for block_id, score in rrf_scores.items():
+        normalized_score = score / max_rrf_score
         merged_results.append(
             SearchResult(
                 chunk=chunk_map[block_id],
-                similarity=score
+                similarity=normalized_score
             )
         )
 
-    # Sort by RRF score (descending)
+    # Sort by normalized score (descending)
     merged_results.sort(key=lambda x: x.similarity, reverse=True)
 
     return merged_results
