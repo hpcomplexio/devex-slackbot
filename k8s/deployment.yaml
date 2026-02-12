@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: faq-bot
-        image: devexslackbotacr.azurecr.io/faq-bot:v1.0.4
+        image: devexslackbotacr.azurecr.io/faq-bot:v1.1.0
         imagePullPolicy: Always
 
         resources:
@@ -74,11 +74,37 @@ spec:
         - name: TOP_K
           value: "5"
         - name: MIN_SIMILARITY
-          value: "0.50"
+          value: "0.70"
         - name: MIN_GAP
           value: "0.15"
         - name: FAQ_SYNC_INTERVAL
           value: "30"
+
+        # Hybrid Search (NEW - BM25 + Semantic)
+        - name: HYBRID_SEARCH_ENABLED
+          value: "true"
+        - name: HYBRID_SEMANTIC_TOP_K
+          value: "20"
+        - name: HYBRID_BM25_TOP_K
+          value: "20"
+
+        # Proactive FAQ Suggestion Features
+        - name: REACTION_SEARCH_ENABLED
+          value: "true"
+        - name: SLASH_COMMAND_ENABLED
+          value: "true"
+        - name: SUGGESTION_MIN_SIMILARITY
+          value: "0.50"
+        - name: SUGGESTION_TOP_K
+          value: "5"
+
+        # Status Update Monitoring
+        - name: STATUS_MONITORING_ENABLED
+          value: "true"
+        - name: SLACK_STATUS_CHANNELS
+          value: "C0A8JH4382G,C0ADGQVD48Y,C07R3UE2XV0"
+        - name: STATUS_CACHE_TTL_HOURS
+          value: "24"
 
         # Mount FAQ content
         volumeMounts:
