@@ -53,7 +53,18 @@ class FAQBot:
             self.content_source = None  # No API client needed for markdown
 
         self.embedding_model = EmbeddingModel()
-        self.vector_store = VectorStore(dimension=self.embedding_model.dimension)
+
+        # Create BM25 index if hybrid search is enabled
+        bm25_index = None
+        if config.hybrid_search_enabled:
+            from .retrieval.bm25_index import BM25Index
+            bm25_index = BM25Index()
+            self.logger.info("Hybrid search enabled - BM25 index will be built with FAQs")
+
+        self.vector_store = VectorStore(
+            dimension=self.embedding_model.dimension,
+            bm25_index=bm25_index
+        )
         self.claude_client = ClaudeClient(config.anthropic_api_key)
         self.thread_tracker = ThreadTracker()
         self.metrics = BotMetrics()
@@ -72,7 +83,28 @@ class FAQBot:
             min_similarity=config.suggestion_min_similarity,
         )
 
-        # Create pipeline with status cache (Phase 3)
+        # Create reranked search if enabled
+        reranked_search = None
+        if config.reranking_enabled:
+            from .retrieval.reranker import CrossEncoderReranker, RerankedSearch
+
+            self.logger.info(
+                f"Reranking enabled - using model: {config.reranking_model}"
+            )
+            reranker = CrossEncoderReranker(model_name=config.reranking_model)
+
+            reranked_search = RerankedSearch(
+                base_search=self.vector_store,
+                reranker=reranker,
+                embedding_model=self.embedding_model,
+                retrieval_top_k=config.reranking_retrieval_top_k,
+                rerank_top_k=config.reranking_top_k,
+                use_hybrid=config.hybrid_search_enabled,
+                hybrid_semantic_top_k=config.hybrid_semantic_top_k,
+                hybrid_bm25_top_k=config.hybrid_bm25_top_k,
+            )
+
+        # Create pipeline with status cache, hybrid search, and reranking (Phase 3)
         self.pipeline = AnswerPipeline(
             embedding_model=self.embedding_model,
             vector_store=self.vector_store,
@@ -81,6 +113,10 @@ class FAQBot:
             min_similarity=config.min_similarity,
             min_gap=config.min_gap,
             status_cache=self.status_cache,
+            hybrid_search_enabled=config.hybrid_search_enabled,
+            hybrid_semantic_top_k=config.hybrid_semantic_top_k,
+            hybrid_bm25_top_k=config.hybrid_bm25_top_k,
+            reranked_search=reranked_search,
         )
 
         # Create Slack app with all handlers (Phase 4-5)

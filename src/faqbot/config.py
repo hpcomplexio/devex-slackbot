@@ -36,6 +36,17 @@ class Config:
     min_gap: float = 0.15
     faq_sync_interval: int = 30  # minutes
 
+    # Hybrid search (new)
+    hybrid_search_enabled: bool = False
+    hybrid_semantic_top_k: int = 20
+    hybrid_bm25_top_k: int = 20
+
+    # Reranking (new)
+    reranking_enabled: bool = False
+    reranking_model: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+    reranking_retrieval_top_k: int = 20
+    reranking_top_k: int = 5
+
     # Suggestion features (new in Phase 4-5)
     reaction_search_enabled: bool = True
     slash_command_enabled: bool = True
@@ -116,6 +127,17 @@ class Config:
         suggestion_min_similarity = float(os.getenv("SUGGESTION_MIN_SIMILARITY", "0.50"))
         suggestion_top_k = int(os.getenv("SUGGESTION_TOP_K", "5"))
 
+        # Hybrid search (new)
+        hybrid_search_enabled = os.getenv("HYBRID_SEARCH_ENABLED", "false").lower() == "true"
+        hybrid_semantic_top_k = int(os.getenv("HYBRID_SEMANTIC_TOP_K", "20"))
+        hybrid_bm25_top_k = int(os.getenv("HYBRID_BM25_TOP_K", "20"))
+
+        # Reranking (new)
+        reranking_enabled = os.getenv("RERANKING_ENABLED", "false").lower() == "true"
+        reranking_model = os.getenv("RERANKING_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+        reranking_retrieval_top_k = int(os.getenv("RERANKING_RETRIEVAL_TOP_K", "20"))
+        reranking_top_k = int(os.getenv("RERANKING_TOP_K", "5"))
+
         # Status monitoring (new)
         status_monitoring_enabled = os.getenv("STATUS_MONITORING_ENABLED", "true").lower() == "true"
         slack_status_channels_str = os.getenv("SLACK_STATUS_CHANNELS", "")
@@ -146,6 +168,13 @@ class Config:
             slash_command_enabled=slash_command_enabled,
             suggestion_min_similarity=suggestion_min_similarity,
             suggestion_top_k=suggestion_top_k,
+            hybrid_search_enabled=hybrid_search_enabled,
+            hybrid_semantic_top_k=hybrid_semantic_top_k,
+            hybrid_bm25_top_k=hybrid_bm25_top_k,
+            reranking_enabled=reranking_enabled,
+            reranking_model=reranking_model,
+            reranking_retrieval_top_k=reranking_retrieval_top_k,
+            reranking_top_k=reranking_top_k,
             status_monitoring_enabled=status_monitoring_enabled,
             slack_status_channels=status_channels,
             status_cache_ttl_hours=status_cache_ttl_hours,
@@ -171,3 +200,17 @@ class Config:
         # Validate status monitoring
         if self.status_cache_ttl_hours < 1:
             raise ValueError("STATUS_CACHE_TTL_HOURS must be >= 1")
+
+        # Validate hybrid search
+        if self.hybrid_semantic_top_k < 1:
+            raise ValueError("HYBRID_SEMANTIC_TOP_K must be >= 1")
+        if self.hybrid_bm25_top_k < 1:
+            raise ValueError("HYBRID_BM25_TOP_K must be >= 1")
+
+        # Validate reranking
+        if self.reranking_retrieval_top_k < 1:
+            raise ValueError("RERANKING_RETRIEVAL_TOP_K must be >= 1")
+        if self.reranking_top_k < 1:
+            raise ValueError("RERANKING_TOP_K must be >= 1")
+        if not self.reranking_model:
+            raise ValueError("RERANKING_MODEL must not be empty")
