@@ -9,7 +9,7 @@ from ..pipeline.answer import AnswerPipeline
 from ..state.dedupe import ThreadTracker
 from ..state.metrics import BotMetrics
 from .filters import should_process_message
-from .formatting import format_answer_for_slack, format_no_answer_message
+from .formatting import format_answer_for_slack, format_no_answer_message, format_searching_message
 
 
 def setup_message_handler(
@@ -65,6 +65,9 @@ def setup_message_handler(
                 metrics.increment_filtered("thread_already_answered")
                 return
 
+            # Send "searching" message immediately
+            say(text=format_searching_message(), thread_ts=thread_ts)
+
             # Generate answer
             logger.info(f"Generating answer | question={text[:100]}")
             result = pipeline.answer_question(text)
@@ -77,8 +80,8 @@ def setup_message_handler(
                     f"ratio={conf.ratio if conf and conf.ratio else None}"
                 )
                 metrics.increment_answers_skipped(result.reason)
-                # Optionally send "can't answer" message
-                # say(text=format_no_answer_message(), thread_ts=thread_ts)
+                # Send "can't answer" message
+                say(text=format_no_answer_message(), thread_ts=thread_ts)
                 return
 
             # Send answer in thread

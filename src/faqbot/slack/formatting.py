@@ -18,3 +18,8 @@ def format_error_message(error: str) -> str:
 def format_no_answer_message() -> str:
     """Format message when bot can't answer."""
     return "I don't have enough information in the FAQ to answer this question confidently. Please check the FAQ page or ask a team member."
+
+
+def format_searching_message() -> str:
+    """Format message shown while searching for answer."""
+    return ":mag: Looking for an answer..."
