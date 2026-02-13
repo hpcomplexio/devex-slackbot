@@ -1,6 +1,7 @@
 """Cross-encoder reranking for improved result accuracy."""
 
 from typing import List, Union, TYPE_CHECKING
+import numpy as np
 from sentence_transformers import CrossEncoder
 
 from ..types import FAQChunk
@@ -52,13 +53,17 @@ class CrossEncoderReranker:
             for r in results
         ]
 
-        # Get cross-encoder scores
-        scores = self.model.predict(pairs)
+        # Get cross-encoder scores (raw logits)
+        raw_scores = self.model.predict(pairs)
 
-        # Create new SearchResults with cross-encoder scores
+        # Normalize scores to [0, 1] using sigmoid
+        # Cross-encoder outputs logits (typically -10 to +10), sigmoid converts to probabilities
+        normalized_scores = 1 / (1 + np.exp(-np.array(raw_scores)))
+
+        # Create new SearchResults with normalized scores
         reranked = [
             SearchResult(chunk=r.chunk, similarity=float(score))
-            for r, score in zip(results, scores)
+            for r, score in zip(results, normalized_scores)
         ]
 
         # Sort by score (descending) and return top_k

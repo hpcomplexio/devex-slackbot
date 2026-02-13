@@ -23,9 +23,9 @@ RUN mkdir -p /tmp/transformers_cache && chmod 777 /tmp/transformers_cache
 ENV TRANSFORMERS_CACHE=/tmp/transformers_cache
 ENV HF_HOME=/tmp/transformers_cache
 
-# Pre-download embedding model to avoid startup delay
-# This downloads ~100MB sentence-transformers model during build
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+# Pre-download models to avoid startup delay
+# Embedding model (~100MB) and cross-encoder reranking model (~80MB)
+RUN python -c "from sentence_transformers import SentenceTransformer, CrossEncoder; SentenceTransformer('all-MiniLM-L6-v2'); CrossEncoder('cross-encoder/ms-marco-MiniLM-L-6-v2')"
 
 # Run as non-root for security
 USER nobody

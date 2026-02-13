@@ -70,9 +70,11 @@ def setup_message_handler(
             result = pipeline.answer_question(text)
 
             if not result.answered:
+                conf = result.confidence
                 logger.info(
                     f"Answer skipped | reason={result.reason} | "
-                    f"top_score={result.confidence.top_score if result.confidence else None}"
+                    f"top_score={conf.top_score if conf else None} | "
+                    f"ratio={conf.ratio if conf and conf.ratio else None}"
                 )
                 metrics.increment_answers_skipped(result.reason)
                 # Optionally send "can't answer" message
@@ -86,9 +88,11 @@ def setup_message_handler(
             # Mark thread as answered
             thread_tracker.mark_answered(thread_ts)
 
+            conf = result.confidence
             logger.info(
                 f"Answer sent | thread={thread_ts} | "
-                f"confidence={result.confidence.top_score if result.confidence else None}"
+                f"top_score={conf.top_score if conf else None} | "
+                f"ratio={conf.ratio if conf and conf.ratio else None}"
             )
             metrics.increment_answers_sent()
 

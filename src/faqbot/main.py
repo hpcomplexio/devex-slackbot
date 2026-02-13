@@ -112,11 +112,16 @@ class FAQBot:
             top_k=config.top_k,
             min_similarity=config.min_similarity,
             min_gap=config.min_gap,
+            min_ratio=config.min_ratio,
             status_cache=self.status_cache,
             hybrid_search_enabled=config.hybrid_search_enabled,
             hybrid_semantic_top_k=config.hybrid_semantic_top_k,
             hybrid_bm25_top_k=config.hybrid_bm25_top_k,
             reranked_search=reranked_search,
+            # Mode-specific ratio thresholds
+            semantic_min_ratio=config.semantic_min_ratio,
+            hybrid_min_ratio=config.hybrid_min_ratio,
+            reranking_min_ratio=config.reranking_min_ratio,
         )
 
         # Create Slack app with all handlers (Phase 4-5)

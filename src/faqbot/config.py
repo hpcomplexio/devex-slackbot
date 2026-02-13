@@ -34,7 +34,13 @@ class Config:
     top_k: int = 5
     min_similarity: float = 0.70
     min_gap: float = 0.15
+    min_ratio: float = 1.05  # Default ratio threshold (5% better than second)
     faq_sync_interval: int = 30  # minutes
+
+    # Mode-specific ratio thresholds (used when ratio-based confidence is enabled)
+    semantic_min_ratio: float = 1.10  # Higher for semantic (wider score spread)
+    hybrid_min_ratio: float = 1.02  # Lower for RRF (tight score clustering)
+    reranking_min_ratio: float = 1.05  # Medium for cross-encoder
 
     # Hybrid search (new)
     hybrid_search_enabled: bool = False
@@ -119,7 +125,13 @@ class Config:
         top_k = int(os.getenv("TOP_K", "5"))
         min_similarity = float(os.getenv("MIN_SIMILARITY", "0.70"))
         min_gap = float(os.getenv("MIN_GAP", "0.15"))
+        min_ratio = float(os.getenv("MIN_RATIO", "1.05"))
         faq_sync_interval = int(os.getenv("FAQ_SYNC_INTERVAL", "30"))
+
+        # Mode-specific ratio thresholds
+        semantic_min_ratio = float(os.getenv("SEMANTIC_MIN_RATIO", "1.10"))
+        hybrid_min_ratio = float(os.getenv("HYBRID_MIN_RATIO", "1.02"))
+        reranking_min_ratio = float(os.getenv("RERANKING_MIN_RATIO", "1.05"))
 
         # Suggestion features (new)
         reaction_search_enabled = os.getenv("REACTION_SEARCH_ENABLED", "true").lower() == "true"
@@ -163,7 +175,11 @@ class Config:
             top_k=top_k,
             min_similarity=min_similarity,
             min_gap=min_gap,
+            min_ratio=min_ratio,
             faq_sync_interval=faq_sync_interval,
+            semantic_min_ratio=semantic_min_ratio,
+            hybrid_min_ratio=hybrid_min_ratio,
+            reranking_min_ratio=reranking_min_ratio,
             reaction_search_enabled=reaction_search_enabled,
             slash_command_enabled=slash_command_enabled,
             suggestion_min_similarity=suggestion_min_similarity,
@@ -188,6 +204,14 @@ class Config:
             raise ValueError("MIN_SIMILARITY must be between 0 and 1")
         if not 0 <= self.min_gap <= 1:
             raise ValueError("MIN_GAP must be between 0 and 1")
+        if self.min_ratio < 1:
+            raise ValueError("MIN_RATIO must be >= 1")
+        if self.semantic_min_ratio < 1:
+            raise ValueError("SEMANTIC_MIN_RATIO must be >= 1")
+        if self.hybrid_min_ratio < 1:
+            raise ValueError("HYBRID_MIN_RATIO must be >= 1")
+        if self.reranking_min_ratio < 1:
+            raise ValueError("RERANKING_MIN_RATIO must be >= 1")
         if self.faq_sync_interval < 1:
             raise ValueError("FAQ_SYNC_INTERVAL must be >= 1")
 

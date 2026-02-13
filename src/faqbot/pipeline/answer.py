@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from ..retrieval.embeddings import EmbeddingModel
 from ..retrieval.store import VectorStore, SearchResult
-from ..retrieval.ranker import check_confidence, ConfidenceCheck
+from ..retrieval.ranker import check_confidence_ratio, ConfidenceCheck
 from ..llm.claude import ClaudeClient
 from ..llm.prompts import SYSTEM_PROMPT, build_user_prompt
 from ..status.cache import StatusUpdateCache, StatusUpdate, INCIDENT_KEYWORDS
@@ -37,11 +37,16 @@ class AnswerPipeline:
         top_k: int = 5,
         min_similarity: float = 0.70,
         min_gap: float = 0.15,
+        min_ratio: float = 1.05,
         status_cache: Optional[StatusUpdateCache] = None,
         hybrid_search_enabled: bool = False,
         hybrid_semantic_top_k: int = 20,
         hybrid_bm25_top_k: int = 20,
-        reranked_search: Optional["RerankedSearch"] = None,  # NEW
+        reranked_search: Optional["RerankedSearch"] = None,
+        # Mode-specific ratio thresholds
+        semantic_min_ratio: float = 1.10,
+        hybrid_min_ratio: float = 1.02,
+        reranking_min_ratio: float = 1.05,
     ):
         """Initialize pipeline.
 
@@ -51,12 +56,16 @@ class AnswerPipeline:
             claude_client: Claude API client
             top_k: Number of chunks to retrieve
             min_similarity: Minimum similarity threshold
-            min_gap: Minimum gap threshold
+            min_gap: Minimum gap threshold (legacy, kept for compatibility)
+            min_ratio: Default minimum ratio threshold
             status_cache: Optional cache of status updates for incident correlation
             hybrid_search_enabled: Enable hybrid BM25 + semantic search
             hybrid_semantic_top_k: Number of semantic results for hybrid search
             hybrid_bm25_top_k: Number of BM25 results for hybrid search
             reranked_search: Optional reranked search wrapper (takes precedence)
+            semantic_min_ratio: Ratio threshold for pure semantic search
+            hybrid_min_ratio: Ratio threshold for hybrid search (lower due to RRF)
+            reranking_min_ratio: Ratio threshold for cross-encoder reranking
         """
         self.embedding_model = embedding_model
         self.vector_store = vector_store
@@ -64,11 +73,16 @@ class AnswerPipeline:
         self.top_k = top_k
         self.min_similarity = min_similarity
         self.min_gap = min_gap
+        self.min_ratio = min_ratio
         self.status_cache = status_cache
         self.hybrid_search_enabled = hybrid_search_enabled
         self.hybrid_semantic_top_k = hybrid_semantic_top_k
         self.hybrid_bm25_top_k = hybrid_bm25_top_k
-        self.reranked_search = reranked_search  # NEW
+        self.reranked_search = reranked_search
+        # Mode-specific ratio thresholds
+        self.semantic_min_ratio = semantic_min_ratio
+        self.hybrid_min_ratio = hybrid_min_ratio
+        self.reranking_min_ratio = reranking_min_ratio
 
     def answer_question(self, question: str) -> AnswerResult:
         """Answer a question using the full pipeline with status correlation.
@@ -127,9 +141,17 @@ class AnswerPipeline:
                 # Status correlation is supplementary, not critical
                 pass
 
-        # Step 3: Check confidence
-        confidence = check_confidence(
-            results, min_similarity=self.min_similarity, min_gap=self.min_gap
+        # Step 3: Check confidence using ratio-based metric
+        # Select appropriate ratio threshold based on search mode
+        if self.reranked_search:
+            active_min_ratio = self.reranking_min_ratio
+        elif self.hybrid_search_enabled:
+            active_min_ratio = self.hybrid_min_ratio
+        else:
+            active_min_ratio = self.semantic_min_ratio
+
+        confidence = check_confidence_ratio(
+            results, min_similarity=self.min_similarity, min_ratio=active_min_ratio
         )
 
         if not confidence.should_answer:

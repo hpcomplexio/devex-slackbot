@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: faq-bot
-        image: devexslackbotacr.azurecr.io/faq-bot:v1.1.1
+        image: devexslackbotacr.azurecr.io/faq-bot:v1.2.0
         imagePullPolicy: Always
 
         resources:
@@ -77,16 +77,36 @@ spec:
           value: "0.70"
         - name: MIN_GAP
           value: "0.15"
+        - name: MIN_RATIO
+          value: "1.05"
         - name: FAQ_SYNC_INTERVAL
           value: "30"
 
-        # Hybrid Search (NEW - BM25 + Semantic)
+        # Mode-specific ratio thresholds for confidence scoring
+        - name: SEMANTIC_MIN_RATIO
+          value: "1.10"
+        - name: HYBRID_MIN_RATIO
+          value: "1.02"
+        - name: RERANKING_MIN_RATIO
+          value: "1.003"
+
+        # Hybrid Search (BM25 + Semantic)
         - name: HYBRID_SEARCH_ENABLED
           value: "true"
         - name: HYBRID_SEMANTIC_TOP_K
           value: "20"
         - name: HYBRID_BM25_TOP_K
           value: "20"
+
+        # Cross-Encoder Reranking (enabled for best accuracy)
+        - name: RERANKING_ENABLED
+          value: "true"
+        - name: RERANKING_MODEL
+          value: "cross-encoder/ms-marco-MiniLM-L-6-v2"
+        - name: RERANKING_RETRIEVAL_TOP_K
+          value: "20"
+        - name: RERANKING_TOP_K
+          value: "5"
 
         # Proactive FAQ Suggestion Features
         - name: REACTION_SEARCH_ENABLED
