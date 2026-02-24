@@ -14,7 +14,9 @@ from .llm.claude import ClaudeClient
 from .pipeline.answer import AnswerPipeline
 from .slack.app import create_slack_app
 from .state.dedupe import ThreadTracker
+from .state.interaction_log import InteractionLog
 from .state.metrics import BotMetrics
+from .state.receipt_tracker import ReceiptTracker
 from .status.cache import StatusUpdateCache
 from .search.suggestions import FAQSuggestionService
 
@@ -72,6 +74,18 @@ class FAQBot:
         # Create status update cache (Phase 1)
         self.status_cache = StatusUpdateCache(ttl_hours=config.status_cache_ttl_hours)
 
+        # Create interaction log (new feature)
+        self.interaction_log = None
+        if config.interaction_log_enabled:
+            self.interaction_log = InteractionLog(config.interaction_log_path)
+            self.logger.info(f"Interaction log enabled: {config.interaction_log_path}")
+
+        # Create receipt tracker (new feature)
+        self.receipt_tracker = None
+        if config.mention_tracking_enabled:
+            self.receipt_tracker = ReceiptTracker(ttl_hours=config.receipt_ttl_hours)
+            self.logger.info("Receipt tracking enabled")
+
         # Initial FAQ sync
         self.logger.info("Performing initial FAQ sync...")
         self.sync_faq()
@@ -124,7 +138,7 @@ class FAQBot:
             reranking_min_ratio=config.reranking_min_ratio,
         )
 
-        # Create Slack app with all handlers (Phase 4-5)
+        # Create Slack app with all handlers (Phase 4-5 + new features)
         self.app, self.handler = create_slack_app(
             config=config,
             pipeline=self.pipeline,
@@ -132,6 +146,8 @@ class FAQBot:
             status_cache=self.status_cache,
             thread_tracker=self.thread_tracker,
             metrics=self.metrics,
+            interaction_log=self.interaction_log,
+            receipt_tracker=self.receipt_tracker,
             logger=self.logger,
         )
 

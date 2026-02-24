@@ -20,7 +20,7 @@ spec:
     spec:
       containers:
       - name: faq-bot
-        image: devexslackbotacr.azurecr.io/faq-bot:v1.2.0
+        image: devexslackbotacr.azurecr.io/faq-bot:v1.3.2
         imagePullPolicy: Always
 
         resources:
@@ -125,6 +125,25 @@ spec:
           value: "C0A8JH4382G,C0ADGQVD48Y,C07R3UE2XV0"
         - name: STATUS_CACHE_TTL_HOURS
           value: "24"
+
+        # Interaction Logging
+        - name: INTERACTION_LOG_ENABLED
+          value: "true"
+        - name: INTERACTION_LOG_PATH
+          value: "/tmp/interactions.db"
+
+        # Read Receipts / Mention Tracking
+        - name: MENTION_TRACKING_ENABLED
+          value: "true"
+        - name: RECEIPT_TTL_HOURS
+          value: "168"
+
+        # Admin Users (comma-separated Slack user IDs for admin-only commands)
+        - name: SLACK_ADMIN_USER_IDS
+          valueFrom:
+            secretKeyRef:
+              name: faq-bot-secrets
+              key: slack-admin-user-ids
 
         # Mount FAQ content
         volumeMounts:

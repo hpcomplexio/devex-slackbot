@@ -64,6 +64,17 @@ class Config:
     slack_status_channels: List[str] = field(default_factory=list)  # Channels to monitor
     status_cache_ttl_hours: int = 24  # How long to keep status updates
 
+    # Interaction logging (new)
+    interaction_log_enabled: bool = True
+    interaction_log_path: str = "./data/interactions.db"
+
+    # Read receipts / mention tracking (new)
+    mention_tracking_enabled: bool = True
+    receipt_ttl_hours: int = 168  # 7 days
+
+    # Admin users (comma-separated Slack user IDs)
+    slack_admin_user_ids: str = ""
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load configuration from environment variables."""
@@ -160,6 +171,17 @@ class Config:
         )
         status_cache_ttl_hours = int(os.getenv("STATUS_CACHE_TTL_HOURS", "24"))
 
+        # Interaction logging (new)
+        interaction_log_enabled = os.getenv("INTERACTION_LOG_ENABLED", "true").lower() == "true"
+        interaction_log_path = os.getenv("INTERACTION_LOG_PATH", "./data/interactions.db")
+
+        # Read receipts / mention tracking (new)
+        mention_tracking_enabled = os.getenv("MENTION_TRACKING_ENABLED", "true").lower() == "true"
+        receipt_ttl_hours = int(os.getenv("RECEIPT_TTL_HOURS", "168"))
+
+        # Admin users (new)
+        slack_admin_user_ids = os.getenv("SLACK_ADMIN_USER_IDS", "")
+
         return cls(
             slack_bot_token=slack_bot_token,
             slack_app_token=slack_app_token,
@@ -194,6 +216,11 @@ class Config:
             status_monitoring_enabled=status_monitoring_enabled,
             slack_status_channels=status_channels,
             status_cache_ttl_hours=status_cache_ttl_hours,
+            interaction_log_enabled=interaction_log_enabled,
+            interaction_log_path=interaction_log_path,
+            mention_tracking_enabled=mention_tracking_enabled,
+            receipt_ttl_hours=receipt_ttl_hours,
+            slack_admin_user_ids=slack_admin_user_ids,
         )
 
     def validate(self) -> None:
@@ -224,6 +251,10 @@ class Config:
         # Validate status monitoring
         if self.status_cache_ttl_hours < 1:
             raise ValueError("STATUS_CACHE_TTL_HOURS must be >= 1")
+
+        # Validate read receipts
+        if self.receipt_ttl_hours < 1:
+            raise ValueError("RECEIPT_TTL_HOURS must be >= 1")
 
         # Validate hybrid search
         if self.hybrid_semantic_top_k < 1:

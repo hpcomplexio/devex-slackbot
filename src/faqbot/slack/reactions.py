@@ -10,10 +10,13 @@ from slack_bolt import App
 from ..pipeline.answer import AnswerPipeline
 from ..search.suggestions import FAQSuggestion, FAQSuggestionService
 from ..state.dedupe import ThreadTracker
+from ..state.interaction_log import InteractionLog
 from ..state.metrics import BotMetrics
+from ..state.receipt_tracker import ReceiptTracker
 
 
 SEARCH_EMOJI = "mag"  # 🔍 magnifying glass
+ACKNOWLEDGMENT_EMOJI = "white_check_mark"  # ✅ checkmark
 
 
 def setup_reaction_handlers(
@@ -22,9 +25,11 @@ def setup_reaction_handlers(
     pipeline: AnswerPipeline,
     thread_tracker: ThreadTracker,
     metrics: BotMetrics,
+    interaction_log: Optional[InteractionLog],
+    receipt_tracker: Optional[ReceiptTracker],
     logger: logging.Logger,
 ):
-    """Set up reaction-based search handlers.
+    """Set up reaction-based search and acknowledgment handlers.
 
     Args:
         app: Slack Bolt app
@@ -32,10 +37,33 @@ def setup_reaction_handlers(
         pipeline: Answer generation pipeline
         thread_tracker: Thread deduplication tracker
         metrics: Bot metrics tracker
+        interaction_log: Interaction logger (optional)
+        receipt_tracker: Receipt tracker (optional)
         logger: Logger instance
     """
 
     @app.event("reaction_added")
+    def handle_reaction_router(event: Dict[str, Any], client: Any):
+        """Route reactions to appropriate handlers (🔍 search or ✅ acknowledgment)."""
+        try:
+            reaction = event.get("reaction")
+
+            # Route to search handler
+            if reaction == SEARCH_EMOJI:
+                handle_search_reaction(event, client)
+                return
+
+            # Route to acknowledgment handler
+            if reaction == ACKNOWLEDGMENT_EMOJI and receipt_tracker:
+                handle_acknowledgment_reaction(event, client)
+                return
+
+            # Ignore other reactions
+            return
+
+        except Exception as e:
+            logger.error(f"Error routing reaction | error={e}", exc_info=True)
+
     def handle_search_reaction(event: Dict[str, Any], client: Any):
         """Handle 🔍 reaction to trigger FAQ search."""
         try:
@@ -140,6 +168,41 @@ def setup_reaction_handlers(
         except Exception as e:
             logger.error(f"Error handling reaction | error={e}")
             # metrics.increment_errors()
+
+    def handle_acknowledgment_reaction(event: Dict[str, Any], client: Any):
+        """Handle ✅ reaction for read receipt tracking."""
+        try:
+            if not receipt_tracker:
+                return
+
+            user_id = event.get("user")
+            item = event.get("item", {})
+            message_ts = item.get("ts")
+
+            # Check if this message is tracked for receipts
+            record = receipt_tracker.get_record(message_ts)
+            if not record:
+                return  # Not a tracked message
+
+            # Mark user as acknowledged
+            success = receipt_tracker.mark_acknowledged(message_ts, user_id)
+
+            if success:
+                logger.info(f"Acknowledgment tracked | user={user_id} | message_ts={message_ts}")
+
+                # Update interaction log if available
+                if interaction_log:
+                    interaction_log.update_engagement(
+                        thread_ts=record.thread_ts,
+                        reaction=ACKNOWLEDGMENT_EMOJI
+                    )
+            else:
+                logger.debug(
+                    f"Acknowledgment not tracked | user={user_id} | message_ts={message_ts} | reason=not_mentioned_or_already_acked"
+                )
+
+        except Exception as e:
+            logger.error(f"Error handling acknowledgment reaction | error={e}", exc_info=True)
 
     @app.action(re.compile(r"post_faq_.*"))
     def handle_post_faq_button(ack: Any, action: Dict[str, Any], body: Dict[str, Any], client: Any):
